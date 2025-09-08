@@ -4,88 +4,90 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
-# 设置pandas显示选项，显示所有列和完整内容
-pd.set_option('display.max_columns', None)  # 显示所有列
-pd.set_option('display.width', None)        # 不限制显示宽度
-pd.set_option('display.max_colwidth', None) # 不限制列宽度
-pd.set_option('display.expand_frame_repr', False)  # 不换行显示
-# --- 1. 数据加载与准备 ---
+# Set pandas display options to show all columns and full content
+pd.set_option('display.max_columns', None)  # Show all columns
+pd.set_option('display.width', None)        # No display width limit
+pd.set_option('display.max_colwidth', None) # No column width limit
+pd.set_option('display.expand_frame_repr', False)  # No line breaks
+
+# --- 1. Data Loading and Preparation ---
 
 try:
-    # 加载您的Excel文件
-    df = pd.read_excel('ant网络雷达图.xlsx')
+    # Load your Excel file
+    df = pd.read_excel('slow wave parameter in cluster.xlsx')
 except FileNotFoundError:
-    print("错误：请确保名为 'ant网络雷达图.xlsx' 的文件与此脚本在同一文件夹中。")
+    print("Error: Please ensure the file named 'slow wave parameter in cluster.xlsx' is in the same folder as this script.")
     exit()
 
-# 为了方便，我们假设列名如下，请根据您的实际列名进行修改
-# 假设: 'Group' 是分组, 'Age' 是年龄
-# 'Executive_Control' 是执行控制分数 (因变量Y)
-# 'maxnegpkamp' 是您最关心的慢波指标 (自变量X)
-# 请务必将下面的 '列名' 替换为您的真实列名
+# For convenience, we assume the following column names, please modify according to your actual column names
+# Assumption: 'Group' is the grouping variable, 'Age' is age
+# 'Executive_Control' is the executive control score (dependent variable Y)
+# 'maxnegpkamp' is your most important slow wave parameter (independent variable X)
+# Please be sure to replace the 'column_name' below with your real column names
+
 # BEHAVIOR_Y = 'Accuracy'
-# BEHAVIOR_Y = 'Response Time'  # 行为学 - 反应时 (RT)
-# BEHAVIOR_Y = 'Alerting'  # ANT - 警觉网络
-BEHAVIOR_Y = 'Orienting'  # ANT - 定向网络
-# BEHAVIOR_Y = 'Executive Control'  # ANT - 执行控制网络
+# BEHAVIOR_Y = 'Response Time'  # Behavioral - Reaction Time (RT)
+# BEHAVIOR_Y = 'Alerting'  # ANT - Alerting network
+BEHAVIOR_Y = 'Orienting'  # ANT - Orienting network
+# BEHAVIOR_Y = 'Executive Control'  # ANT - Executive control network
 
 # BRAIN_X = 'maxnegpkamp'
-# BRAIN_X = 'maxnegpkamp_Fp1'  #Executive Control+++
+# BRAIN_X = 'maxnegpkamp_Fp1'  # Executive Control+++
 # BRAIN_X = 'maxnegpkamp_3'
 # BRAIN_X = 'maxnegpkamp_5'
-# BRAIN_X = 'maxnegpkamp_F4'  #Orienting
-# BRAIN_X = 'maxnegpkamp_9' #Orienting
+# BRAIN_X = 'maxnegpkamp_F4'  # Orienting
+# BRAIN_X = 'maxnegpkamp_9' # Orienting
 # BRAIN_X = 'maxnegpkamp_10'
 # BRAIN_X = 'maxnegpkamp_12'
-# BRAIN_X = 'maxnegpkamp_cluster1' #Orienting
+# BRAIN_X = 'maxnegpkamp_cluster1' # Orienting
 # BRAIN_X = 'maxnegpkamp_cluster2'
-# BRAIN_X = 'maxnegpkamp_cluster'#Orienting
+# BRAIN_X = 'maxnegpkamp_cluster' # Orienting
 # BRAIN_X = 'maxnegpkamp/mxdnslp_1'
 # BRAIN_X = 'mxdnslp_1'
-# BRAIN_X = 'mxdnslp_3'#Orienting
+# BRAIN_X = 'mxdnslp_3' # Orienting
 # BRAIN_X = 'mxdnslp_4'
 # BRAIN_X = 'mxdnslp_5'
 # BRAIN_X = 'mxdnslp_7'
 # BRAIN_X = 'mxdnslp_8'
 # BRAIN_X = 'mxdnslp_9'
-# BRAIN_X = 'mxdnslp_12'  #ACC
+# BRAIN_X = 'mxdnslp_12'  # ACC
 # BRAIN_X = 'mxdnslp_14'
 # BRAIN_X = 'mxdnslp_18'
-# BRAIN_X = 'mxdnslp_cluster1'#Orienting
-# BRAIN_X = 'mxdnslp_cluster2'#Orienting
-# BRAIN_X = 'mxdnslp_cluster'#Orienting
-# BRAIN_X = 'mxupslp_cluster'  #Executive Control
-# BRAIN_X = 'mxupslp_1'  #Executive Control
+# BRAIN_X = 'mxdnslp_cluster1' # Orienting
+# BRAIN_X = 'mxdnslp_cluster2' # Orienting
+# BRAIN_X = 'mxdnslp_cluster' # Orienting
+# BRAIN_X = 'mxupslp_cluster'  # Executive Control
+# BRAIN_X = 'mxupslp_1'  # Executive Control
 # BRAIN_X = 'mxupslp_3'
 # BRAIN_X = 'mxupslp_7'
 # BRAIN_X = 'mxupslp_5'
-BRAIN_X = 'maxpospkamp' # Executive Control  #Orienting
-# BRAIN_X = 'mxdnslp'  # 慢波参数 - 最大下降斜率
-# BRAIN_X = 'mxupslp'  # 慢波参数 - 最大上升斜率
-# BRAIN_X = 'sw_density' # 慢波参数 - 慢波密度
-# BRAIN_X = 'mean_duration'  # 慢波参数 - 平均持续时间
+BRAIN_X = 'maxpospkamp' # Executive Control  # Orienting
+# BRAIN_X = 'mxdnslp'  # Slow wave parameter - Maximum downward slope
+# BRAIN_X = 'mxupslp'  # Slow wave parameter - Maximum upward slope
+# BRAIN_X = 'sw_density' # Slow wave parameter - Slow wave density
+# BRAIN_X = 'mean_duration'  # Slow wave parameter - Mean duration
 
 
-# --- 2. 筛选数据并创建调节变量和中心化变量 ---
+# --- 2. Filter Data and Create Moderator and Centered Variables ---
 
-# 筛选出ADHD-I (值为1) 和 ADHD-C (值为3) 的数据
+# Filter data for ADHD-I (value 1) and ADHD-C (value 3)
 df_subset = df[df['Group'].isin([1, 3])].copy()
 
-# 创建调节变量 W (Moderator): Group_ADHD_C
-# ADHD-I 组为 0, ADHD-C 组为 1。这让结果解释起来更直观
+# Create moderator variable W: Group_ADHD_C
+# ADHD-I group as 0, ADHD-C group as 1. This makes results easier to interpret
 df_subset['Group_ADHD_C'] = df_subset['Group'].apply(lambda x: 1 if x == 3 else 0)
 
-# 对连续的自变量和协变量进行中心化 (减去均值)
-# 这能减少多重共线性，并使模型中的主效应更易于解释
+# Center continuous independent variables and covariates (subtract mean)
+# This reduces multicollinearity and makes main effects easier to interpret
 df_subset[f'{BRAIN_X}_centered'] = df_subset[BRAIN_X] - df_subset[BRAIN_X].mean()
 df_subset['Age_centered'] = df_subset['Age'] - df_subset['Age'].mean()
 
 
-# --- 3. 运行调节效应模型 ---
+# --- 3. Run Moderation Analysis ---
 
-print("--- 调节效应分析 ---")
-# 使用 pingouin.linear_regression 来构建包含交互项的模型
-# 公式: Y ~ X + W + X*W + Covariate
+print("--- Moderation Effect Analysis ---")
+# Use pingouin.linear_regression to build a model with interaction term
+# Formula: Y ~ X + W + X*W + Covariate
 # Y = BEHAVIOR_Y, X = BRAIN_X_centered, W = Group_ADHD_C
 model = pg.linear_regression(
     X=df_subset[[f'{BRAIN_X}_centered', 'Group_ADHD_C', 'Age_centered']],
@@ -93,7 +95,7 @@ model = pg.linear_regression(
     add_intercept=True
 )
 
-# 手动添加交互项
+# Manually add interaction term
 interaction_term = df_subset[f'{BRAIN_X}_centered'] * df_subset['Group_ADHD_C']
 X_with_interaction = sm.add_constant(pd.concat([
     df_subset[[f'{BRAIN_X}_centered', 'Group_ADHD_C', 'Age_centered']],
@@ -102,69 +104,69 @@ X_with_interaction = sm.add_constant(pd.concat([
 
 model_with_interaction = sm.OLS(df_subset[BEHAVIOR_Y], X_with_interaction).fit()
 
-print("模型结果 (交互项为 'Interaction'):")
+print("Model Results (Interaction term is 'Interaction'):")
 print(model_with_interaction.summary())
 print("\n" + "="*50 + "\n")
 
-# 核心解读：请查看上面结果中 'Interaction' 这一行的 P>|t| (即p值)。
-# 如果这个p值小于0.05，则说明存在显著的调节效应！
+# Key interpretation: Check the P>|t| (p-value) for the 'Interaction' row in the results above.
+# If this p-value is less than 0.05, it indicates a significant moderation effect!
 
 
-# --- 4. 简单斜率分析 (Simple Slopes / Post-Hoc Analysis) ---
-# 既然调节效应显著，我们需要看看到底是怎样的关系
-print("--- 简单斜率分析 (事后检验) ---")
+# --- 4. Simple Slopes Analysis (Post-Hoc Analysis) ---
+# Since the moderation effect is significant, we need to understand the nature of the relationship
+print("--- Simple Slopes Analysis (Post-Hoc Test) ---")
 
-# 分析ADHD-I组 (Group_ADHD_C = 0)
+# Analyze ADHD-I group (Group_ADHD_C = 0)
 df_i = df_subset[df_subset['Group_ADHD_C'] == 0]
 slope_i = pg.linear_regression(X=df_i[[f'{BRAIN_X}_centered', 'Age_centered']], y=df_i[BEHAVIOR_Y])
-print("ADHD-I 组: 慢波对行为的影响")
+print("ADHD-I Group: Effect of Slow-wave on Behavior")
 print(slope_i.round(3))
 print("\n")
 
 
-# 分析ADHD-C组 (Group_ADHD_C = 1)
+# Analyze ADHD-C group (Group_ADHD_C = 1)
 df_c = df_subset[df_subset['Group_ADHD_C'] == 1]
 slope_c = pg.linear_regression(X=df_c[[f'{BRAIN_X}_centered', 'Age_centered']], y=df_c[BEHAVIOR_Y])
-print("ADHD-C 组: 慢波对行为的影响")
+print("ADHD-C Group: Effect of Slow-wave on Behavior")
 print(slope_c.round(3))
 print("\n" + "="*50 + "\n")
 
 
-# --- 5. 结果可视化 ---
-print("--- 正在生成调节效应可视化图... ---")
+# --- 5. Visualization ---
+print("--- Generating Moderation Effect Visualization... ---")
 
-# 使用seaborn的lmplot函数，并将其返回的FacetGrid对象赋值给变量'g'
-# 'g'现在包含了图的全部信息，包括图例
+# Use seaborn's lmplot function and assign the returned FacetGrid object to variable 'g'
+# 'g' now contains all information about the plot, including the legend
 g = sns.lmplot(
     data=df_subset,
     x=BRAIN_X,
     y=BEHAVIOR_Y,
-    hue='Group_ADHD_C',    # 用这个0/1变量来区分颜色
-    ci=None,               # 不显示置信区间，让图像更清晰
-    palette=['#2b6a99', '#f16c23'], # 为ADHD-I和ADHD-C指定不同颜色
+    hue='Group_ADHD_C',    # Use this 0/1 variable to differentiate colors
+    ci=None,               # Don't show confidence intervals for clearer visualization
+    palette=['#2b6a99', '#f16c23'], # Specify different colors for ADHD-I and ADHD-C
     height=6,
     aspect=1.15
 )
 
-# 使用seaborn的新函数 sns.move_legend() 来移动图例到左上角
-# 这是比手动创建新图例更稳健的方法
+# Use seaborn's new function sns.move_legend() to move the legend to the upper right
+# This is a more robust method than manually creating a new legend
 sns.move_legend(g, "upper right", fontsize=13)
 
-# 现在我们可以修改已经移动到左上角的图例
-# 1. 将图例的标题 ("Group_ADHD_C") 设置为空字符串，从而隐藏它
+# Now we can modify the legend that has been moved to the upper right
+# 1. Set the legend title ("Group_ADHD_C") to an empty string to hide it
 g.legend.set_title('')
 
-# 2. 定义新的标签
+# 2. Define new labels
 new_labels = ['ADHD-I', 'ADHD-C']
 
-# 3. 遍历图例中的文本对象并设置新标签
-#    这会替换掉原来的 '0' 和 '1'
+# 3. Iterate through the text objects in the legend and set new labels
+#    This replaces the original '0' and '1'
 for t, l in zip(g.legend.texts, new_labels):
     t.set_text(l)
 
-# 设置X轴和Y轴的标签
+# Set X and Y axis labels
 plt.xlabel(f'Slow-wave Parameter ({BRAIN_X})', fontsize=19)
 plt.ylabel(f'ANT network ({BEHAVIOR_Y})', fontsize=19)
 
-# 显示最终的图像
+# Display the final plot
 plt.show()
