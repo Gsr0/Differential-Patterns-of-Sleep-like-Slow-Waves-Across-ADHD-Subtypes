@@ -10,80 +10,80 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# --- 1. 参数设置与数据加载 ---
-# 请将 'your_data_file.xlsx' 替换为您的Excel文件实际路径
-file_path = '所有慢波参数分电极总表.xlsx'
-# 请将 'Sheet1' 替换为您的Excel中的工作表名称
+# --- 1. Parameter Settings and Data Loading ---
+# Please replace 'your_data_file.xlsx' with the actual path to your Excel file
+file_path = 'All slow wave parameter sub electrode.xlsx'
+# Please replace 'Sheet1' with the actual worksheet name in your Excel file
 sheet_name = 'Sheet1'
 
-# 您提供的电极名称列表 (共31个，但实际使用30个)
+# The electrode names list you provided (31 total, but actually using 30)
 electrode_names = [
     'Fp1', 'Fpz', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8', 'FC5', 'FC1',
     'FC2', 'FC6', 'T7', 'C3', 'Cz', 'C4', 'T8', 'CP5',
     'CP1', 'CP2', 'CP6', 'P7', 'P3', 'Pz', 'P4', 'P8','POz', 'O1','Oz', 'O2'
 ]
 
-# 需要进行检验的参数列名
+# Parameter column names to be tested
 params_to_test = [
     'maxnegpkamp', 'maxpospkamp', 'mxdnslp', 'mxupslp', 'sw_density', 'mean_duration'
 ]
 
-# 组别定义
-group1_id = 1  # ADHD 1型
-group3_id = 3  # ADHD 3型
+# Group definitions
+group1_id = 1  # ADHD Type 1
+group3_id = 3  # ADHD Type 3
 
-# 置换检验参数
-p_threshold_cluster = 0.025  # 用于形成簇的p值阈值
-p_threshold_monte_carlo = 0.05  # 用于判断簇是否显著的蒙特卡洛p值
-n_permutations = 5000  # 置换次数
+# Permutation test parameters
+p_threshold_cluster = 0.025  # p-value threshold for cluster formation
+p_threshold_monte_carlo = 0.05  # Monte Carlo p-value threshold for cluster significance
+n_permutations = 5000  # Number of permutations
 
-# 加载数据
+# Load data
 try:
     df = pd.read_excel(file_path, sheet_name=sheet_name)
-    print("Excel文件加载成功。")
-    print(f"数据包含 {df['SubjectID'].nunique()} 名被试。")
+    print("Excel file loaded successfully.")
+    print(f"Data contains {df['SubjectID'].nunique()} subjects.")
 except FileNotFoundError:
-    print(f"错误：未找到文件 '{file_path}'。请检查文件路径是否正确。")
+    print(f"Error: File '{file_path}' not found. Please check if the file path is correct.")
     exit()
 
-# --- 2. MNE准备工作：创建电极信息对象 ---
+# --- 2. MNE Preparation: Create electrode info object ---
 ch_numbers_in_data = sorted(df['Channel'].unique())
 n_channels = len(ch_numbers_in_data)
 ch_names = electrode_names[:n_channels]
 
-print(f"\n数据中检测到 {n_channels} 个电极。")
-print(f"将要使用的电极名称: {ch_names}")
+print(f"\nDetected {n_channels} electrodes in the data.")
+print(f"Electrode names to be used: {ch_names}")
 
-# 创建MNE所需的info结构
+# Create MNE info structure
 info = mne.create_info(ch_names=ch_names, sfreq=1000, ch_types='eeg')
 
-# 设置电极位置
+# Set electrode positions
 montage = mne.channels.read_custom_montage('locations.sfp')
 info.set_montage(montage, on_missing='warn')
 
-# --- 3. 定义电极邻近关系 ---
+# --- 3. Define electrode adjacency relationships ---
 adjacency, adj_ch_names = mne.channels.find_ch_adjacency(info, ch_type='eeg')
 
 if adj_ch_names != ch_names:
-    print("警告：邻近矩阵的电极顺序与数据不匹配，正在尝试重新索引。")
+    print("Warning: Electrode order in adjacency matrix doesn't match data, attempting to reindex.")
     adj_indices = [adj_ch_names.index(ch) for ch in ch_names]
     adjacency = adjacency[np.ix_(adj_indices, adj_indices)]
 
-print("\n电极邻近关系矩阵创建完成。")
+print("\nElectrode adjacency matrix created successfully.")
 
 
-# --- 4. LME分析函数 ---
+# --- 4. LME Analysis Function ---
 def run_lme_analysis(df, param_name, group1, group2):
     """
-    使用线性混合效应模型进行分析，以年龄为协变量
-    返回每个电极的t值和p值
+    Perform analysis using Linear Mixed Effects model with age as covariate
+    Returns t-values and p-values for each electrode
     """
-    # 筛选出需要的组别和参数
+    # Filter data for the required groups and parameter
     df_analysis = df[df['Group'].isin([group1, group2])].copy()
 
-    # 确保年龄列存在
+    # Check if Age column exists
     if 'Age' not in df_analysis.columns:
-        print(f"警告：数据中没有找到'Age'列，将不使用年龄作为协变量")
+        print(f"Warning: 'Age' column not found in data, will not use age as covariate")
         use_age = False
     else:
         use_age = True
@@ -91,39 +91,39 @@ def run_lme_analysis(df, param_name, group1, group2):
     t_values = []
     p_values = []
 
-    # 对每个电极分别进行LME分析
+    # Perform LME analysis for each electrode separately
     for channel in sorted(df_analysis['Channel'].unique()):
         try:
-            # 提取当前电极的数据
+            # Extract data for current electrode
             channel_data = df_analysis[df_analysis['Channel'] == channel].copy()
 
-            # 检查数据完整性
+            # Check data integrity
             if channel_data[param_name].isna().any():
-                print(f"警告：电极 {channel} 的参数 {param_name} 存在缺失值，跳过")
+                print(f"Warning: Parameter {param_name} has missing values at electrode {channel}, skipping")
                 t_values.append(0)
                 p_values.append(1)
                 continue
 
-            # 准备LME模型的公式
+            # Prepare LME model formula
             if use_age:
                 formula = f"{param_name} ~ Group + Age"
             else:
                 formula = f"{param_name} ~ Group"
 
-            # 拟合LME模型（以SubjectID作为随机效应）
-            # 注意：由于每个被试在每个电极只有一个观测值，这里实际上是普通的线性回归
-            # 但我们保持LME的框架以便将来扩展
+            # Fit LME model (using SubjectID as random effect)
+            # Note: Since each subject has only one observation per electrode, this is essentially ordinary linear regression
+            # But we maintain the LME framework for future extension
             try:
                 model = mixedlm(formula, channel_data, groups=channel_data["SubjectID"])
                 result = model.fit(method='lbfgs')
 
-                # 提取组别效应的t值和p值
+                # Extract t-value and p-value for group effect
                 group_coef_name = 'Group'
                 if group_coef_name in result.params.index:
                     t_val = result.tvalues[group_coef_name]
                     p_val = result.pvalues[group_coef_name]
                 else:
-                    # 如果找不到Group系数，可能是编码问题，尝试其他可能的名称
+                    # If Group coefficient is not found, might be encoding issue, try other possible names
                     group_params = [param for param in result.params.index if 'Group' in str(param)]
                     if group_params:
                         t_val = result.tvalues[group_params[0]]
@@ -136,8 +136,8 @@ def run_lme_analysis(df, param_name, group1, group2):
                 p_values.append(p_val)
 
             except Exception as e:
-                print(f"LME模型拟合失败，电极 {channel}: {str(e)}")
-                # 如果LME失败，回退到普通t检验
+                print(f"LME model fitting failed for electrode {channel}: {str(e)}")
+                # If LME fails, fallback to ordinary t-test
                 group1_data = channel_data[channel_data['Group'] == group1][param_name]
                 group2_data = channel_data[channel_data['Group'] == group2][param_name]
 
@@ -150,50 +150,50 @@ def run_lme_analysis(df, param_name, group1, group2):
                     p_values.append(1)
 
         except Exception as e:
-            print(f"分析电极 {channel} 时出错: {str(e)}")
+            print(f"Error analyzing electrode {channel}: {str(e)}")
             t_values.append(0)
             p_values.append(1)
 
     return np.array(t_values), np.array(p_values)
 
 
-# --- 5. 基于LME结果的簇检验函数 ---
+# --- 5. Cluster Test Function Based on LME Results ---
 def lme_cluster_permutation_test(df, param_name, group1, group2, adjacency,
                                  n_permutations=1000, p_threshold=0.025):
     """
-    基于LME分析结果进行簇置换检验
+    Perform cluster permutation test based on LME analysis results
     """
-    # 获取原始的LME分析结果
+    # Get original LME analysis results
     original_t, original_p = run_lme_analysis(df, param_name, group1, group2)
 
-    # 创建簇（基于p值阈值）
+    # Create clusters (based on p-value threshold)
     significant_mask = original_p < p_threshold
 
-    # 如果没有显著的电极，返回空结果
+    # If no significant electrodes, return empty results
     if not np.any(significant_mask):
         return original_t, [], [], []
 
-    # 使用MNE的簇检测算法
-    # 先将t值转换为与p值阈值对应的t阈值
-    df_residual = len(df['SubjectID'].unique()) - 2  # 自由度估计
+    # Use MNE's cluster detection algorithm
+    # First convert t-values to t-threshold corresponding to p-value threshold
+    df_residual = len(df['SubjectID'].unique()) - 2  # Degrees of freedom estimate
     t_threshold = stats.t.ppf(1.0 - p_threshold / 2, df=df_residual)
 
-    # 创建伪数据进行置换检验
+    # Create pseudo data for permutation test
     df_perm = df[df['Group'].isin([group1, group2])].copy()
 
-    # 存储置换结果
+    # Store permutation results
     cluster_stats = []
 
-    # 检测原始数据中的簇
+    # Detect clusters in original data
     clusters = []
     cluster_t_sums = []
 
-    # 简化的簇检测：基于邻接矩阵找连通的显著区域
+    # Simplified cluster detection: find connected significant regions based on adjacency matrix
     visited = np.zeros(len(original_t), dtype=bool)
 
     for i in range(len(original_t)):
         if significant_mask[i] and not visited[i]:
-            # 开始一个新簇
+            # Start a new cluster
             cluster = []
             stack = [i]
 
@@ -205,7 +205,7 @@ def lme_cluster_permutation_test(df, param_name, group1, group2, adjacency,
                 visited[current] = True
                 cluster.append(current)
 
-                # 检查相邻电极
+                # Check adjacent electrodes
                 for j in range(len(original_t)):
                     if (not visited[j] and significant_mask[j] and
                             adjacency[current, j]):
@@ -215,29 +215,29 @@ def lme_cluster_permutation_test(df, param_name, group1, group2, adjacency,
                 clusters.append(cluster)
                 cluster_t_sums.append(np.sum(np.abs(original_t[cluster])))
 
-    # 置换检验
+    # Permutation test
     null_distribution = []
 
     for perm in range(n_permutations):
-        # 随机置换组标签
+        # Randomly permute group labels
         df_shuffled = df_perm.copy()
         subjects = df_shuffled['SubjectID'].unique()
         np.random.shuffle(subjects)
 
-        # 创建置换后的组标签映射
+        # Create permuted group label mapping
         n_group1 = len(df_perm[df_perm['Group'] == group1]['SubjectID'].unique())
         group1_subjects = subjects[:n_group1]
         group2_subjects = subjects[n_group1:]
 
-        # 应用置换
+        # Apply permutation
         df_shuffled.loc[df_shuffled['SubjectID'].isin(group1_subjects), 'Group'] = group1
         df_shuffled.loc[df_shuffled['SubjectID'].isin(group2_subjects), 'Group'] = group2
 
-        # 计算置换后的统计量
+        # Calculate statistics after permutation
         perm_t, perm_p = run_lme_analysis(df_shuffled, param_name, group1, group2)
         perm_significant = perm_p < p_threshold
 
-        # 检测置换数据中的最大簇统计量
+        # Detect maximum cluster statistic in permuted data
         max_cluster_stat = 0
         visited_perm = np.zeros(len(perm_t), dtype=bool)
 
@@ -265,7 +265,7 @@ def lme_cluster_permutation_test(df, param_name, group1, group2, adjacency,
 
         null_distribution.append(max_cluster_stat)
 
-    # 计算簇的p值
+    # Calculate cluster p-values
     cluster_p_values = []
     for cluster_stat in cluster_t_sums:
         p_val = np.mean([null_stat >= cluster_stat for null_stat in null_distribution])
@@ -274,10 +274,10 @@ def lme_cluster_permutation_test(df, param_name, group1, group2, adjacency,
     return original_t, clusters, cluster_p_values, cluster_t_sums
 
 
-# --- 6. 数据整理函数（保留原有的t检验方法作为备选） ---
+# --- 6. Data Preparation Function (keeping original t-test method as backup) ---
 def prepare_data_for_test(df, param_name, group1, group2):
     """
-    将数据从长格式整理为宽格式，用于传统的置换检验
+    Reshape data from long format to wide format for traditional permutation test
     """
     df_param = df[df['Group'].isin([group1, group2])][['SubjectID', 'Group', 'Channel', param_name]]
     df_pivot = df_param.pivot_table(index=['SubjectID', 'Group'], columns='Channel', values=param_name)
@@ -288,45 +288,45 @@ def prepare_data_for_test(df, param_name, group1, group2):
     return data_g1, data_g3
 
 
-# --- 7. 主分析循环 ---
-print(f"\n开始进行LME统计检验...")
-print(f"用于形成簇的p值阈值: {p_threshold_cluster}")
-print(f"用于判断簇显著性的蒙特卡洛p值阈值: {p_threshold_monte_carlo}")
+# --- 7. Main Analysis Loop ---
+print(f"\nStarting LME statistical testing...")
+print(f"P-value threshold for cluster formation: {p_threshold_cluster}")
+print(f"Monte Carlo p-value threshold for cluster significance: {p_threshold_monte_carlo}")
 print("-" * 50)
 
-# 选择分析方法
-USE_LME = True  # 设置为True使用LME方法，False使用原有的t检验方法
+# Choose analysis method
+USE_LME = True  # Set to True for LME method, False for original t-test method
 
 for param in params_to_test:
-    print(f"正在分析参数: {param}")
+    print(f"Analyzing parameter: {param}")
 
     if USE_LME:
-        # 使用LME方法
-        print("使用线性混合效应模型(LME)进行分析...")
+        # Use LME method
+        print("Using Linear Mixed Effects (LME) model for analysis...")
 
-        # 进行LME簇置换检验
+        # Perform LME cluster permutation test
         t_obs, clusters, cluster_p_values, cluster_stats = lme_cluster_permutation_test(
             df, param, group1_id, group3_id, adjacency, n_permutations, p_threshold_cluster
         )
 
-        # 找出显著的簇
+        # Find significant clusters
         good_clusters_indices = np.where(np.array(cluster_p_values) < p_threshold_monte_carlo)[0]
 
     else:
-        # 使用原有的t检验方法
-        print("使用传统的t检验方法...")
+        # Use original t-test method
+        print("Using traditional t-test method...")
 
-        # 准备数据
+        # Prepare data
         X1, X2 = prepare_data_for_test(df, param, group1_id, group3_id)
 
         if X1.shape[0] == 0 or X2.shape[0] == 0:
-            print(f"警告：参数 '{param}' 的一个或两个组别没有数据，跳过此参数。")
+            print(f"Warning: One or both groups have no data for parameter '{param}', skipping this parameter.")
             continue
 
-        # 计算t阈值
+        # Calculate t-threshold
         t_threshold = stats.t.ppf(1.0 - p_threshold_cluster / 2, df=df['SubjectID'].nunique() - 2)
 
-        # 执行传统的基于簇的置换检验
+        # Perform traditional cluster-based permutation test
         t_obs, clusters, cluster_p_values, H0 = mne.stats.permutation_cluster_test(
             [X1, X2],
             n_permutations=n_permutations,
@@ -338,10 +338,10 @@ for param in params_to_test:
 
         good_clusters_indices = np.where(cluster_p_values < p_threshold_monte_carlo)[0]
 
-    # 输出结果
-    print(f"结果: 共发现 {len(clusters)} 个簇。")
+    # Output results
+    print(f"Results: Found {len(clusters)} clusters in total.")
     if len(good_clusters_indices) > 0:
-        print(f"发现 {len(good_clusters_indices)} 个显著簇 (p < {p_threshold_monte_carlo})。")
+        print(f"Found {len(good_clusters_indices)} significant clusters (p < {p_threshold_monte_carlo}).")
         for i, cluster_idx in enumerate(good_clusters_indices):
             if USE_LME:
                 cluster_p = cluster_p_values[cluster_idx]
@@ -351,11 +351,11 @@ for param in params_to_test:
                 ch_inds = np.where(clusters[cluster_idx])[0]
 
             cluster_chans = [ch_names[i] for i in ch_inds]
-            print(f"  - 显著簇 {i + 1}: p = {cluster_p:.4f}, 包含电极: {cluster_chans}")
+            print(f"  - Significant cluster {i + 1}: p = {cluster_p:.4f}, includes electrodes: {cluster_chans}")
     else:
-        print("未发现显著簇。")
+        print("No significant clusters found.")
 
-    # --- 8. 可视化：绘制头皮拓扑图 ---
+    # --- 8. Visualization: Plot scalp topography ---
     sig_chans_mask = np.zeros(n_channels, dtype=bool)
     if len(good_clusters_indices) > 0:
         for idx in good_clusters_indices:
@@ -364,7 +364,7 @@ for param in params_to_test:
             else:
                 sig_chans_mask[clusters[idx]] = True
 
-    # 绘图
+    # Plotting
     fig, ax = plt.subplots(figsize=(8, 6))
 
     if USE_LME:
@@ -385,44 +385,44 @@ for param in params_to_test:
 
     ax.set_title(title, fontweight='bold')
 
-    # 添加颜色条
+    # Add colorbar
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label('t-value')
 
     plt.tight_layout()
     plt.show()
 
-    # 如果使用LME，还可以输出更详细的统计信息
+    # If using LME, can also output more detailed statistical information
     if USE_LME:
-        # 进行多重比较校正
+        # Perform multiple comparisons correction
         _, p_corrected, _, _ = multipletests(
             run_lme_analysis(df, param, group1_id, group3_id)[1],
             method='fdr_bh'
         )
 
-        print(f"多重比较校正后的显著电极（FDR < 0.05）:")
+        print(f"Significant electrodes after multiple comparisons correction (FDR < 0.05):")
         sig_electrodes_corrected = np.where(p_corrected < 0.05)[0]
         if len(sig_electrodes_corrected) > 0:
             for idx in sig_electrodes_corrected:
                 print(f"  - {ch_names[idx]}: t = {t_obs[idx]:.3f}, p_corrected = {p_corrected[idx]:.4f}")
         else:
-            print("  无显著电极")
+            print("  No significant electrodes")
 
     print("-" * 50)
 
-print("\n分析完成！")
+print("\nAnalysis completed!")
 
 
-# --- 9. 补充：保存结果到Excel ---
+# --- 9. Supplementary: Save results to Excel ---
 def save_results_to_excel(df, params_to_test, group1_id, group3_id, filename='LME_analysis_results.xlsx'):
     """
-    将LME分析结果保存到Excel文件
+    Save LME analysis results to Excel file
     """
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         for param in params_to_test:
             t_values, p_values = run_lme_analysis(df, param, group1_id, group3_id)
 
-            # 创建结果DataFrame
+            # Create results DataFrame
             results_df = pd.DataFrame({
                 'Channel': range(1, len(t_values) + 1),
                 'Electrode': ch_names[:len(t_values)],
@@ -430,16 +430,16 @@ def save_results_to_excel(df, params_to_test, group1_id, group3_id, filename='LM
                 'p_value': p_values
             })
 
-            # 添加多重比较校正
+            # Add multiple comparisons correction
             _, p_corrected, _, _ = multipletests(p_values, method='fdr_bh')
             results_df['p_corrected_FDR'] = p_corrected
             results_df['significant_uncorrected'] = p_values < 0.05
             results_df['significant_FDR'] = p_corrected < 0.05
 
-            # 保存到不同的sheet
+            # Save to different sheets
             results_df.to_excel(writer, sheet_name=param, index=False)
 
-    print(f"结果已保存到 {filename}")
+    print(f"Results saved to {filename}")
 
-# 如果需要保存结果，取消下面这行的注释
+# If you need to save results, uncomment the line below
 # save_results_to_excel(df, params_to_test, group1_id, group3_id)
